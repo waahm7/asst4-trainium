@@ -58,6 +58,7 @@ This is the tiled implementation of a vector add kernel.
 We load the input vectors in chunks, add them, and then store the result
 chunk into HBM. Therefore, this kernel works for any vector that is a
 multiple of 128.
+with 128 row chunk: 109 μs
 """
 @nki.jit
 def vector_add_tiled(a_vec, b_vec):
@@ -69,7 +70,7 @@ def vector_add_tiled(a_vec, b_vec):
     M = a_vec.shape[0]
     
     # TODO: You should modify this variable for Step 1
-    ROW_CHUNK = 1
+    ROW_CHUNK = 128
 
     # Loop over the total number of chunks, we can use affine_range
     # because there are no loop-carried dependencies
@@ -96,6 +97,20 @@ This is an extension of the vector_add_tiled kernel. Instead of loading tiles
 of size (ROW_CHUNK, 1), we reshape the vectors into (PARTITION_DIM, FREE_DIM)
 tiles. This allows us to amortize DMA transfer overhead and load many more
 elements per DMA transfer.
+FREE_DIM, 2 = 52
+FREE_DIM, 10 = 24
+FREE_DIM, 20 = 21
+FREE_DIM, 40 = 20
+FREE_DIM, 50 = 19
+FREE_DIM, 100 = 19
+FREE_DIM, 200 = 19
+// count = 256k
+FREE_DIM 2000 = 33
+FREE_DIM 1000 = 33
+
+Why 1000 is faster than 2000? 
+2000 DIM will try to load 2000*128 = 256000 elements in memory at once, it will first load everything, process it, and then store it back 
+1000 DIM will try to load half the elements in memoery, process and load the remaining half in parallel and then store the result in parallel which makes it faster
 """
 @nki.jit
 def vector_add_stream(a_vec, b_vec):
@@ -104,7 +119,7 @@ def vector_add_stream(a_vec, b_vec):
     M = a_vec.shape[0]
 
     # TODO: You should modify this variable for Step 1
-    FREE_DIM = 2
+    FREE_DIM = 1000
 
     # The maximum size of our Partition Dimension
     PARTITION_DIM = 128

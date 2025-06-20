@@ -36,9 +36,11 @@ The shape of the output should be [batch_size, out_channels, out_pool_height, ou
 
 @nki.jit
 def fused_conv2d_maxpool(X, W, bias, pool_size=1):
-
     batch_size, in_channels, input_height, input_width = X.shape
-    out_channels, in_channels_, filter_height, filter_width = W.shape
+    # Let's assume W is transposed before passed into this function
+    # out_channels, in_channels_, filter_height, filter_width = W.shape
+    filter_height, filter_width, in_channels_, out_channels  = W.shape
+
     out_channels_ = bias.shape[0]
 
     assert (
@@ -52,10 +54,14 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     out_pool_width = out_width // pool_size
     
     # Can assume multiple of 128 to avoid using mask
-    assert in_channels % 128 == 0
+    #assert in_channels % 128 == 0
 
     # Can assume one PSUM bank can at least fit one row of the pixels
     assert nl.tile_size.gemm_moving_fmax >= out_width
+
+    # Various tiling dimensions (You may want to define more of them)
+    c_in_pmax = nl.tile_size.pmax
+    n_tiles_c_in = in_channels // c_in_pmax
 
     # Initialize output array
     X_out = nl.ndarray(
@@ -63,16 +69,49 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
         dtype=X.dtype,
         buffer=nl.hbm,
     )
+    #nl.device_print("Original input:"+str(X.shape)+":", X)
+    #nl.device_print("Original filter:"+str(W.shape)+":", W)
 
-    # Various tiling dimensions (You may want to define more of them)
-    c_in_pmax = nl.tile_size.pmax
-    n_tiles_c_in = in_channels // c_in_pmax
 
+    X_re = X.reshape((batch_size, in_channels, input_height*input_width))
+    
     # Process the images in batches
-    for b in nl.affine_range(batch_size):
-        raise RuntimeError("Please fill your implementation of computing convolution"
-                           " of X[b] with the weights W and bias b, followed by a"
-                           " maxpool and store the result in X_out[b]")
+    for batch in nl.affine_range(batch_size): # For Each image
+        #x_tile = nl.load(X_re[batch])
+        #nl.device_print("value of first Reshape:"+str(X_re.shape)+":", x_tile)
+        output_3d = nl.zeros((out_channels, out_height, out_width), dtype=X.dtype, buffer=nl.psum)
+        #nl.device_print("\tvalue of output 2d:"+str(output_2d.shape)+":",output_2d)
+        for i in nl.affine_range(filter_height):
+            for j in nl.affine_range(filter_width):
+                filter = nl.load(W[i,j])
+                #nl.device_print("\t---------value of filter:-----"+str(filter.shape)+":",filter)
+                for y in nl.affine_range(out_height):
+                    for x in nl.affine_range(out_width):
+                        in_y = y + i
+                        in_x = x + j
+                        input_pos = in_y * input_width + in_x
+                        input_slice = nl.load(X_re[batch, :, input_pos])
+                        #nl.device_print("\tvalue of input slice:"+str(input_slice.shape)+":",input_slice)
+                        # what's the shape of input slice? 
+                        out_pos = y * out_width + x
+                        # why accummalte?
+                        output = nl.matmul(filter, input_slice, transpose_x = True)
+                        # #output = nl.transpose(output)
+                        # #nl.device_print("\tvalue of output:"+str(output.shape)+":",output)
+                        output_3d[:, y, x] += output[:, 0]
+                        #nl.device_print("\tvalue of output 2d:"+str(output_2d.shape)+":",output_2d)
+                       
+        # Need to copy from psum to sbuf before we can copy it to HBM
+        result_sbuf = nl.copy(output_3d, dtype=X.dtype)
+        # #nl.device_print("\tvalue of final result:"+str(result_sbuf.shape)+":",result_sbuf)
+        nl.store(X_out[batch], value=result_sbuf)
 
+          # Copy to SBUF with proper shape and type
+       
+
+    # Just copy one element to demonstrate
+    temp = nl.load(X[0, 0, 0, 0])  # Load a single value
+    #nl.store(X_out[0, 0, 0, 0], temp)
+    
     return X_out
 

@@ -19,7 +19,7 @@ def conv2d_cpu_torch(X, W, bias, pad_size=0, pool_size=2):
 """
 A NumPy implementation of the forward pass for a convolutional layer.
 """
-def conv_numpy(X, W, bias):
+def conv_numpy(X, W, bias, pad_size=0, pool_size=2):
     out = None
     
     batch_size, in_channels, input_height, input_width = X.shape
@@ -29,12 +29,18 @@ def conv_numpy(X, W, bias):
     W_out = 1 + (input_width - filter_width)
 
     out = np.zeros((batch_size, out_channels, H_out, W_out))
-    for b in range(batch_size):
-        for c in range(out_channels):
-            for i in range(H_out):
+
+    for b in range(batch_size): # For each image
+        for c in range(out_channels): # For each filter
+            for i in range(H_out): 
                 for j in range(W_out):
+                    # i, j = output pixel for each layer
+                    # How it is calculated? 
+
                     x_ij = X[b, :, i : i + filter_height, j : j + filter_width]
-                    out[b, c, i, j] = np.sum(x_ij * W[c]) + bias[c]
+                    #input_00 = X[0, all_channels, 0 : filter height, 0: filter width]
+                    #out[0, channel, i, j]
+                    out[b, c, i, j] = np.sum(x_ij * W[c]) #+ bias[c]
 
     return out
 
