@@ -38,7 +38,8 @@ The shape of the output should be [batch_size, out_channels, out_pool_height, ou
 def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     batch_size, in_channels, input_height, input_width = X.shape
     # Let's assume W is transposed before passed into this function
-    # out_channels, in_channels_, filter_height, filter_width = W.shape
+    # out_channels, in_channels_, filter_height, filter_width = W.shape 
+    # Weights can completely fit inside SBUF, so maybe load transpose?
     filter_height, filter_width, in_channels_, out_channels  = W.shape
 
     out_channels_ = bias.shape[0]
@@ -79,27 +80,38 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     for batch in nl.affine_range(batch_size): # For Each image
         #x_tile = nl.load(X_re[batch])
         #nl.device_print("value of first Reshape:"+str(X_re.shape)+":", x_tile)
+        # ERROR: The type of fancy compilation needed is not working with psum which is
+        # output_3d[:, y, x] += output[:, 0]
         output_3d = nl.zeros((out_channels, out_height, out_width), dtype=X.dtype, buffer=nl.psum)
         #nl.device_print("\tvalue of output 2d:"+str(output_2d.shape)+":",output_2d)
         for i in nl.affine_range(filter_height):
             for j in nl.affine_range(filter_width):
                 filter = nl.load(W[i,j])
-                #nl.device_print("\t---------value of filter:-----"+str(filter.shape)+":",filter)
+                #nl.device_print("\t---------value of filter:-----"+str(filter.shape)+":",filter) 
+                # old working but stupid code
+                # for y in nl.affine_range(out_height):
+                #     for x in nl.affine_range(out_width):
+                #         in_y = y + i
+                #         in_x = x + j
+                #         input_pos = in_y * input_width + in_x
+                #         # Layout is [channels x 1]
+                #         input_slice = nl.load(X_re[batch, :, input_pos])
+                #         #nl.device_print("\tvalue of input slice:"+str(input_slice.shape)+":",input_slice)
+                #         output = nl.matmul(filter, input_slice, transpose_x = True)
+                #         # Shape of output is channels x 1
+                #         output_3d[:, y, x] += output[:, 0]
+                #         nl.device_print("\tvalue of output:"+str(output.shape)+":",output)
+                # How to build one matrix to multiply
+
+                im2col = nl.ndarray((in_channels, filter_height, filter_width), dtype=X.dtype, buffer=nl.sbuf)
                 for y in nl.affine_range(out_height):
                     for x in nl.affine_range(out_width):
                         in_y = y + i
                         in_x = x + j
-                        input_pos = in_y * input_width + in_x
-                        input_slice = nl.load(X_re[batch, :, input_pos])
-                        #nl.device_print("\tvalue of input slice:"+str(input_slice.shape)+":",input_slice)
-                        # what's the shape of input slice? 
-                        out_pos = y * out_width + x
-                        # why accummalte?
-                        output = nl.matmul(filter, input_slice, transpose_x = True)
-                        # #output = nl.transpose(output)
-                        # #nl.device_print("\tvalue of output:"+str(output.shape)+":",output)
-                        output_3d[:, y, x] += output[:, 0]
-                        #nl.device_print("\tvalue of output 2d:"+str(output_2d.shape)+":",output_2d)
+                        input_pos = in_y * input_width + in_x 
+                        im2col[:,y,x] = nl.load(X_re[batch,:,input_pos])
+                output_3d += nl.matmul(filter, im2col, transpose_x = True)
+
                        
         # Need to copy from psum to sbuf before we can copy it to HBM
         result_sbuf = nl.copy(output_3d, dtype=X.dtype)
@@ -110,7 +122,7 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
        
 
     # Just copy one element to demonstrate
-    temp = nl.load(X[0, 0, 0, 0])  # Load a single value
+    # temp = nl.load(X[0, 0, 0, 0])  # Load a single value
     #nl.store(X_out[0, 0, 0, 0], temp)
     
     return X_out
