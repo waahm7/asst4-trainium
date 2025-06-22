@@ -154,7 +154,7 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
                                 nl.device_print("output_3d:"+str(output_3d.shape)+":", output_3d)
                         # Need to copy from psum to sbuf before we can copy it to HBM
                         nl.device_print("output_3d before add:"+str(output_3d.shape)+":", output_3d)
-                        result_sbuf[:,:,y] += output_3d # PSUM -> SBUF
+                        result_sbuf[:,y,:] += output_3d # PSUM -> SBUF
                         nl.device_print("waahm7 result_sbuf:"+str(result_sbuf.shape)+":", result_sbuf)
                 nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
     # test = nl.load(X[0,0,0,0])
