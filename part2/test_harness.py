@@ -81,20 +81,20 @@ def test_correctness_conv2d_kernel(
     image_dims_list = [(32, 16)]
     pool_size = 2 if use_maxpool else 1
 
-    input_channels_list = [256]
-    output_channels_list = [256]
+    input_channels_list = [128]
+    output_channels_list = [128]
     kernel_size_list = [3]
     batch_size_list = [4]
-    image_dims_list = [(224, 224)]
+    image_dims_list = [(32, 16)]
     pool_size = 2 if use_maxpool else 1
 
-    # input_channels_list = [2]
-    # output_channels_list = [2]
-    # kernel_size_list = [2]
-    # batch_size_list = [1]
-    # image_dims_list = [(3, 3)]
-    # pool_size = 1
-    # use_bias = False
+    input_channels_list = [2]
+    output_channels_list = [2]
+    kernel_size_list = [2]
+    batch_size_list = [1]
+    image_dims_list = [(3, 3)]
+    pool_size = 1
+    use_bias = False
 
     if use_larger_images:
         input_channels_list = [256]
@@ -112,8 +112,8 @@ def test_correctness_conv2d_kernel(
                         W = np.random.rand(
                             output_channels, input_channels, kernel_size, kernel_size
                         ).astype(np.float32)
-                        # X = create_sequential_tensor((batch_size, input_channels, image_dims[0], image_dims[1]))
-                        # W = create_sequential_tensor((output_channels, input_channels, kernel_size, kernel_size), np.prod(X.shape)+1)
+                        X = create_sequential_tensor((batch_size, input_channels, image_dims[0], image_dims[1]))
+                        W = create_sequential_tensor((output_channels, input_channels, kernel_size, kernel_size), np.prod(X.shape)+1)
                         bias = (
                             np.zeros(output_channels).astype(np.float32)
                             if not use_bias
