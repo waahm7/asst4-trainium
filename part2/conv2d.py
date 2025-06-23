@@ -64,6 +64,7 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     c_in_pmax = nl.tile_size.pmax # max partition dimension (128)
     #c_in_pmax = 2 # temporary example 
     n_tiles_c_in = in_channels // c_in_pmax # this will should be the tiling loop which is 256/128
+    n_tiles_c_out = out_channels // c_in_pmax # this will should be the tiling loop which is 256/128
     free_dim_max = 512
     # (22*22 = 484) but the large image is 224*224 (50176) that's input, what will be the output size?
     # It will be 222*222 if the filter size is 3x3 (49284). So it is equally divided by 18. So even though max can be (22*22 < 512)
@@ -85,27 +86,22 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     X_re = X.reshape((batch_size, in_channels, input_height*input_width))
     
     for batch in nl.affine_range(batch_size): # For Each image
-        for tile_out in nl.affine_range(n_tiles_c_in): # For each channel tile (0-127, 128-255)
+        for tile_out in nl.affine_range(n_tiles_c_out): # For each channel tile (0-127, 128-255)
             start_idx_out = tile_out*c_in_pmax
             end_idx_out = tile_out*c_in_pmax + c_in_pmax
             for row in nl.affine_range(out_height // free_dim_max_rows):
                 row_start = free_dim_max_rows * row
                 row_end = row_start + free_dim_max_rows
-                #result_sbuf = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=X.dtype, buffer=nl.sbuf)
-                output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=X.dtype, buffer=nl.psum) 
+                #output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=nl.float32, buffer=nl.psum) 
+                output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=nl.float32, buffer=nl.psum) 
                 for tile_inner in nl.affine_range(n_tiles_c_in):
                     start_idx_inner = tile_inner*c_in_pmax
                     end_idx_inner = tile_inner*c_in_pmax + c_in_pmax 
-                    # im2col_start = 
-                    # im2col_end = 
-                    # im2col_mega= nl.load(X_re[batch,start_idx_inner:end_idx_inner,im2col_start:im2col_end]) # loads to SBUF
-                    # nl.device_print("im2col_mega:"+str(im2col_mega.shape)+":", im2col_mega)
                     for i in nl.affine_range(filter_height): # row 0-1, 2-3 etc        
                         for y in nl.affine_range(free_dim_max_rows):
-                        #for j in nl.affine_range(filter_width): 
-                            #for y in nl.affine_range(free_dim_max_rows):
                             im2col_index_start = (y + row_start + i) * input_width
                             im2col_index_end = im2col_index_start + filter_width + out_width - 1
+                            # OPTIMIZATION IDEA: I can move this up further to even pre-load more data in memory
                             im2col_mega = nl.load(X_re[batch,start_idx_inner:end_idx_inner,im2col_index_start:im2col_index_end]) # loads to SBUF
                             for j in nl.affine_range(filter_width):
                                 filter = nl.load(W[i,j,start_idx_inner:end_idx_inner,start_idx_out:end_idx_out])
@@ -121,10 +117,9 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
                                 #nl.device_print("output_3d:"+str(output_3d.shape)+":", output_3d)
                 #result_sbuf = nl.copy(output_3d, dtype=X.dtype) # PSUM -> SBUF
                 # nl.device_print("output before store:"+str(output_3d.shape)+":", output_3d)
-                bias_sbm = nl.load(bias[start_idx_out:end_idx_out])
+                bias_sbm = nl.load(bias[start_idx_out:end_idx_out]) # This will also move the matmul result from psum to sbuf
                 result_biased = nl.add(output_3d, bias_sbm)
                 nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_biased) # SBUF -> PSUM
-                #nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
     # test = nl.load(X[0,0,0,0])
     # nl.store(X_out[0,0,0,0],test)
     return X_out 

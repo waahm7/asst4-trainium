@@ -81,12 +81,12 @@ def test_correctness_conv2d_kernel(
     image_dims_list = [(32, 16)]
     pool_size = 2 if use_maxpool else 1
 
-    input_channels_list = [128]
-    output_channels_list = [128]
-    kernel_size_list = [3]
-    batch_size_list = [4]
-    image_dims_list = [(32, 16)]
-    pool_size = 2 if use_maxpool else 1
+    # input_channels_list = [128]
+    # output_channels_list = [256]
+    # kernel_size_list = [3]
+    # batch_size_list = [4]
+    # image_dims_list = [(32, 16)]
+    # pool_size = 2 if use_maxpool else 1
 
     # input_channels_list = [2]
     # output_channels_list = [2]
@@ -112,8 +112,8 @@ def test_correctness_conv2d_kernel(
                         W = np.random.rand(
                             output_channels, input_channels, kernel_size, kernel_size
                         ).astype(np.float32)
-                        X = create_sequential_tensor((batch_size, input_channels, image_dims[0], image_dims[1]))
-                        W = create_sequential_tensor((output_channels, input_channels, kernel_size, kernel_size), np.prod(X.shape)+1)
+                        # X = create_sequential_tensor((batch_size, input_channels, image_dims[0], image_dims[1]))
+                        # W = create_sequential_tensor((output_channels, input_channels, kernel_size, kernel_size), np.prod(X.shape)+1)
                         bias = (
                             np.zeros(output_channels).astype(np.float32)
                             if not use_bias
@@ -124,12 +124,12 @@ def test_correctness_conv2d_kernel(
                         # I need to transpose the inner 2d matrix but for some reason it results in compiler error if I try to do it in NKI                        
                         W_tr = np.transpose(W, [2, 3, 1, 0])
                         #print(W_tr)
-                        print("------------- Image --------")
-                        pprint(X, width=100)
-                        print("------------- Kernal Before --------")
-                        pprint(W, width=100)
-                        print("------------- Kernal After --------")
-                        pprint(W_tr, width=100)
+                        # print("------------- Image --------")
+                        # pprint(X, width=100)
+                        # print("------------- Kernal Before --------")
+                        # pprint(W, width=100)
+                        # print("------------- Kernal After --------")
+                        # pprint(W_tr, width=100)
                         args = [X, W_tr, bias]
                         kwargs = {"pool_size": pool_size}
                         print("------------ Running Kernal ----------------")
@@ -137,8 +137,8 @@ def test_correctness_conv2d_kernel(
                         print("------------ End Kernal ----------------")
                         args = [X, W, bias]
                         out_ref = ref_impl(*args, **kwargs)
-                        print(out)
-                        print(out_ref)
+                        # print(out)
+                        # print(out_ref)
 
 
                         if not np.allclose(out, out_ref):
@@ -245,29 +245,29 @@ if __name__ == "__main__":
     else:
         print("Failed 😢")
 
-    # print(
-    #     "Running correctness test for conv2d kernel with larger images...",
-    #     end="",
-    #     flush=True,
-    # )
-    # test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=True)
-    # if test_result:
-    #     print("Passed 😇")
-    # else:
-    #     print("Failed 😢")
+    print(
+        "Running correctness test for conv2d kernel with larger images...",
+        end="",
+        flush=True,
+    )
+    test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=True)
+    if test_result:
+        print("Passed 😇")
+    else:
+        print("Failed 😢")
 
-    # print(
-    #     "Running correctness test for conv2d kernel with larger images + bias...",
-    #     end="",
-    #     flush=True,
-    # )
-    # test_result = test_correctness_conv2d_kernel(
-    #     conv2d, use_bias=True, use_larger_images=True
-    # )
-    # if test_result:
-    #     print("Passed 😍")
-    # else:
-    #     print("Failed 😢")
+    print(
+        "Running correctness test for conv2d kernel with larger images + bias...",
+        end="",
+        flush=True,
+    )
+    test_result = test_correctness_conv2d_kernel(
+        conv2d, use_bias=True, use_larger_images=True
+    )
+    if test_result:
+        print("Passed 😍")
+    else:
+        print("Failed 😢")
 
     # if args.test_maxpool:
     #     print(
@@ -293,15 +293,15 @@ if __name__ == "__main__":
     if args.profile is not None:
         save_trace(args.profile + "_float32", "file_pool_1_float32.neff")
     
-    # print("Comparing performance with reference kernel (no maxpool, float16)...")
-    # test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float16)
-    # if test_result:
-    #     print("Performance test passed 😍")
-    # else:
-    #     print("Performance test failed 😢")
+    print("Comparing performance with reference kernel (no maxpool, float16)...")
+    test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float16)
+    if test_result:
+        print("Performance test passed 😍")
+    else:
+        print("Performance test failed 😢")
 
-    # if args.profile is not None:
-    #     save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
+    if args.profile is not None:
+        save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
 
     # if args.test_maxpool:
     #     print("Comparing performance with reference kernel (with maxpool, float32)...")
