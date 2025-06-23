@@ -90,9 +90,9 @@ def test_correctness_conv2d_kernel(
 
     # input_channels_list = [2]
     # output_channels_list = [2]
-    # kernel_size_list = [3]
+    # kernel_size_list = [2]
     # batch_size_list = [1]
-    # image_dims_list = [(4, 4)]
+    # image_dims_list = [(3, 3)]
     # pool_size = 1
     # use_bias = False
 
