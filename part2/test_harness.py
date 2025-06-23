@@ -174,9 +174,11 @@ def test_performance_conv2d_kernel(
     W = np.random.rand(out_channels, in_channels, kernel_height, kernel_width).astype(
         dtype
     )
+    
     bias = np.random.rand(out_channels).astype(dtype)
-
-    args = [X, W, bias]
+    bias = np.zeros(out_channels).astype(np.float32)                      
+    W_tr = np.transpose(W, [2, 3, 1, 0])
+    args = [X, W_tr, bias]
     kwargs = {"pool_size": pool_size}
 
     dtype_str = "float32" if dtype == np.float32 else "float16"
@@ -281,15 +283,15 @@ if __name__ == "__main__":
     #     else:
     #         print("Failed 😢")
 
-    # print("Comparing performance with reference kernel (no maxpool, float32)...")
-    # test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float32)
-    # if test_result:
-    #     print("Performance test passed 😍")
-    # else:
-    #     print("Performance test failed 😢")
+    print("Comparing performance with reference kernel (no maxpool, float32)...")
+    test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float32)
+    if test_result:
+        print("Performance test passed 😍")
+    else:
+        print("Performance test failed 😢")
 
-    # if args.profile is not None:
-    #     save_trace(args.profile + "_float32", "file_pool_1_float32.neff")
+    if args.profile is not None:
+        save_trace(args.profile + "_float32", "file_pool_1_float32.neff")
     
     # print("Comparing performance with reference kernel (no maxpool, float16)...")
     # test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float16)
@@ -298,8 +300,8 @@ if __name__ == "__main__":
     # else:
     #     print("Performance test failed 😢")
 
-    if args.profile is not None:
-        save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
+    # if args.profile is not None:
+    #     save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
 
     # if args.test_maxpool:
     #     print("Comparing performance with reference kernel (with maxpool, float32)...")

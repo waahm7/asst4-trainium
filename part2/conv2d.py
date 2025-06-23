@@ -176,17 +176,17 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
                 #result_sbuf = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=X.dtype, buffer=nl.sbuf)
                 output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=X.dtype, buffer=nl.psum) 
                 for i in nl.affine_range(filter_height): # row 0-1, 2-3 etc
-                    for j in nl.affine_range(filter_width): 
                         for tile_inner in nl.affine_range(n_tiles_c_in):
                             start_idx_inner = tile_inner*c_in_pmax
                             end_idx_inner = tile_inner*c_in_pmax + c_in_pmax 
-                            filter = nl.load(W[i,j,start_idx_inner:end_idx_inner,start_idx_out:end_idx_out])
-                            for y in nl.affine_range(free_dim_max_rows):
-                                im2col = nl.ndarray((c_in_pmax, out_width, 1), dtype=X.dtype, buffer=nl.sbuf)
-                                in_y = y + row_start + i
-                                input_pos = in_y * input_width + j 
-                                im2col[:,:,:] = nl.load(X_re[batch,start_idx_inner:end_idx_inner,input_pos:input_pos+out_width]) # loads to SBUF
-                                output_3d[:,y,:] += nl.matmul(filter, im2col, transpose_x = True) # accumulate to PSUM
+                            for j in nl.affine_range(filter_width): 
+                                filter = nl.load(W[i,j,start_idx_inner:end_idx_inner,start_idx_out:end_idx_out])
+                                for y in nl.affine_range(free_dim_max_rows):
+                                    im2col = nl.ndarray((c_in_pmax, out_width, 1), dtype=X.dtype, buffer=nl.sbuf)
+                                    in_y = y + row_start + i
+                                    input_pos = in_y * input_width + j 
+                                    im2col[:,:,:] = nl.load(X_re[batch,start_idx_inner:end_idx_inner,input_pos:input_pos+out_width]) # loads to SBUF
+                                    output_3d[:,y,:] += nl.matmul(filter, im2col, transpose_x = True) # accumulate to PSUM
                 result_sbuf = nl.copy(output_3d, dtype=X.dtype) # PSUM -> SBUF
                 nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
                 #nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
