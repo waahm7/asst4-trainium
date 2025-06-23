@@ -176,7 +176,7 @@ def test_performance_conv2d_kernel(
     )
     
     bias = np.random.rand(out_channels).astype(dtype)
-    bias = np.zeros(out_channels).astype(np.float32)                      
+    #bias = np.zeros(out_channels).astype(np.float32)                      
     W_tr = np.transpose(W, [2, 3, 1, 0])
     args = [X, W_tr, bias]
     kwargs = {"pool_size": pool_size}

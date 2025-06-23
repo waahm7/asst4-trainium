@@ -83,7 +83,7 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
 
 
     X_re = X.reshape((batch_size, in_channels, input_height*input_width))
-
+    
     for batch in nl.affine_range(batch_size): # For Each image
         for tile_out in nl.affine_range(n_tiles_c_in): # For each channel tile (0-127, 128-255)
             start_idx_out = tile_out*c_in_pmax
@@ -119,9 +119,11 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
                                 #nl.device_print("im2col_old:"+str(im2col_old.shape)+":", im2col_old)
                                 output_3d[:,y,:] += nl.matmul(filter, im2col, transpose_x = True) # accumulate to PSUM
                                 #nl.device_print("output_3d:"+str(output_3d.shape)+":", output_3d)
-                result_sbuf = nl.copy(output_3d, dtype=X.dtype) # PSUM -> SBUF
+                #result_sbuf = nl.copy(output_3d, dtype=X.dtype) # PSUM -> SBUF
                 # nl.device_print("output before store:"+str(output_3d.shape)+":", output_3d)
-                nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
+                bias_sbm = nl.load(bias[start_idx_out:end_idx_out])
+                result_biased = nl.add(output_3d, bias_sbm)
+                nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_biased) # SBUF -> PSUM
                 #nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_sbuf) # SBUF -> PSUM
     # test = nl.load(X[0,0,0,0])
     # nl.store(X_out[0,0,0,0],test)
