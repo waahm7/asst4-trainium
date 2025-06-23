@@ -40,9 +40,19 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     # Let's assume W is transposed before passed into this function
     # out_channels, in_channels_, filter_height, filter_width = W.shape 
     # Weights can completely fit inside SBUF, so maybe load transpose?
-    filter_height, filter_width, in_channels_, out_channels  = W.shape
-
+    #filter_height, filter_width, in_channels_, out_channels  = W.shape
+    #out_channels, in_channels_, filter_height, filter_width = W.shape
+    # Filter Height, Filter Weight, Input Channels, Output Channels
     out_channels_ = bias.shape[0]
+    out_channels, in_channels_, filter_height, filter_width = W.shape
+    # reshaped = W.reshape([out_channels*in_channels_, filter_height*filter_width])
+    # transposed = nl.load_transpose2d(reshaped)
+    # final_weights = transposed.reshape([filter_height, filter_width, out_channels, in_channels_])
+    # nl.device_print("W:"+str(W.shape)+":", W)
+    # nl.device_print("transposed filter:"+str(final.shape)+":", final)
+    # for i in nl.affine_range(filter_height):
+    #     for j in nl.affine_range(filter_width):
+    #         W_re = nl.load(W[:,:,i,j])
 
     assert (
         in_channels_ == in_channels and out_channels_ == out_channels
@@ -71,8 +81,8 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     # let's start with 18, this is wrong 222/18 is not real. What if I just tile the height?  
     # Let's start with picking 2 rows of 222 (444) at a time. 
     free_dim_max_rows = 2
-
-
+    #out_channels, in_channels_, filter_height, filter_width = W.shape
+  
     # Initialize output array
     X_out = nl.ndarray(
         shape=(batch_size, out_channels, out_pool_height, out_pool_width),
@@ -81,42 +91,53 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
     )
     # nl.device_print("starting input:"+str(X.shape)+":", X)
     # nl.device_print("starting filter:"+str(W.shape)+":", W)
-
+    W_re = W.reshape((out_channels, in_channels, filter_height*filter_width))
 
     X_re = X.reshape((batch_size, in_channels, input_height*input_width))
-    
+    W_trans = nl.ndarray((c_in_pmax, n_tiles_c_in, out_channels, filter_height, filter_width), dtype=X.dtype)
+    for tile_out in nl.affine_range(n_tiles_c_out): # For each channel tile (0-127, 128-255)
+        start_idx_out = tile_out*c_in_pmax
+        end_idx_out = tile_out*c_in_pmax + c_in_pmax
+        for tile_inner in nl.affine_range(n_tiles_c_in):
+                start_idx_inner = tile_inner*c_in_pmax
+                end_idx_inner = tile_inner*c_in_pmax + c_in_pmax 
+                W_in = nl.load(W[start_idx_out:end_idx_out, start_idx_inner:end_idx_inner, :, :])
+                for i in nl.affine_range(filter_height): # row 0-1, 2-3 etc        
+                    for j in nl.affine_range(filter_width):
+                         filter = nl.transpose(W_in[:, :, i, j])
+                         W_trans[:,tile_inner, start_idx_out:end_idx_out, i, j] = filter
+
     for batch in nl.affine_range(batch_size): # For Each image
         for tile_out in nl.affine_range(n_tiles_c_out): # For each channel tile (0-127, 128-255)
             start_idx_out = tile_out*c_in_pmax
             end_idx_out = tile_out*c_in_pmax + c_in_pmax
+            
             for row in nl.affine_range(out_height // free_dim_max_rows):
                 row_start = free_dim_max_rows * row
                 row_end = row_start + free_dim_max_rows
-                #output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=nl.float32, buffer=nl.psum) 
                 output_3d = nl.zeros((c_in_pmax, free_dim_max_rows, out_width), dtype=nl.float32, buffer=nl.psum) 
                 for tile_inner in nl.affine_range(n_tiles_c_in):
                     start_idx_inner = tile_inner*c_in_pmax
                     end_idx_inner = tile_inner*c_in_pmax + c_in_pmax 
+                    # W_in = nl.load(W_re[start_idx_out:end_idx_out, start_idx_inner:end_idx_inner, :])
+                    # W_in = W_in.reshape((c_in_pmax,c_in_pmax, filter_height, filter_width))
+                   
+                    total_start = row_start * input_width
+                    total_end = (row_start + filter_height - 1 + free_dim_max_rows - 1) * input_width + filter_width + out_width - 1
+                    im2col_all = nl.load(X_re[batch, start_idx_inner:end_idx_inner, total_start:total_end])
                     for i in nl.affine_range(filter_height): # row 0-1, 2-3 etc        
                         for y in nl.affine_range(free_dim_max_rows):
-                            im2col_index_start = (y + row_start + i) * input_width
-                            im2col_index_end = im2col_index_start + filter_width + out_width - 1
+                            # im2col_index_start = (y + row_start + i) * input_width
+                            # im2col_index_end = im2col_index_start + filter_width + out_width - 1
                             # OPTIMIZATION IDEA: I can move this up further to even pre-load more data in memory
-                            im2col_mega = nl.load(X_re[batch,start_idx_inner:end_idx_inner,im2col_index_start:im2col_index_end]) # loads to SBUF
+                            # im2col_mega = nl.load(X_re[batch,start_idx_inner:end_idx_inner,im2col_index_start:im2col_index_end]) # loads to SBUF
+                            offset = (i+y) * input_width
+                            im2col_mega = im2col_all[:, offset:offset + filter_width + out_width]
+                            #filters_row = nl.copy(W_in[:, :, i*filter_width:(i+1)*filter_width])
                             for j in nl.affine_range(filter_width):
-                                filter = nl.load(W[i,j,start_idx_inner:end_idx_inner,start_idx_out:end_idx_out])
-                                # in_y = y + row_start + i
-                                # input_pos = in_y * input_width + j
-                                # im2col_old = nl.ndarray((c_in_pmax, out_width, 1), dtype=X.dtype, buffer=nl.sbuf)
-                                # im2col_old[:,:,:] = nl.load(X_re[batch,start_idx_inner:end_idx_inner,input_pos:input_pos+out_width]) # loads to SBUF  
+                                filter = W_trans[:,tile_inner, start_idx_out:end_idx_out, i, j]
                                 im2col = im2col_mega[:,j:j+out_width]
-                                #nl.device_print("im2col:"+str(im2col.shape)+":", im2col)
-                                #nl.device_print("filter:"+str(filter.shape)+":", filter)
-                                #nl.device_print("im2col_old:"+str(im2col_old.shape)+":", im2col_old)
                                 output_3d[:,y,:] += nl.matmul(filter, im2col, transpose_x = True) # accumulate to PSUM
-                                #nl.device_print("output_3d:"+str(output_3d.shape)+":", output_3d)
-                #result_sbuf = nl.copy(output_3d, dtype=X.dtype) # PSUM -> SBUF
-                # nl.device_print("output before store:"+str(output_3d.shape)+":", output_3d)
                 bias_sbm = nl.load(bias[start_idx_out:end_idx_out]) # This will also move the matmul result from psum to sbuf
                 result_biased = nl.add(output_3d, bias_sbm)
                 nl.store(X_out[batch, start_idx_out:end_idx_out, row_start:row_end, :], value=result_biased) # SBUF -> PSUM

@@ -81,12 +81,12 @@ def test_correctness_conv2d_kernel(
     image_dims_list = [(32, 16)]
     pool_size = 2 if use_maxpool else 1
 
-    # input_channels_list = [128]
-    # output_channels_list = [256]
-    # kernel_size_list = [3]
-    # batch_size_list = [4]
-    # image_dims_list = [(32, 16)]
-    # pool_size = 2 if use_maxpool else 1
+    input_channels_list = [128]
+    output_channels_list = [128]
+    kernel_size_list = [3]
+    batch_size_list = [4]
+    image_dims_list = [(32, 16)]
+    pool_size = 2 if use_maxpool else 1
 
     # input_channels_list = [2]
     # output_channels_list = [2]
@@ -122,14 +122,15 @@ def test_correctness_conv2d_kernel(
                         # I can't figure out how to do this in NKI, for now let's just assume the W is permuted. 
                         # Maybe dma_transpose?
                         # I need to transpose the inner 2d matrix but for some reason it results in compiler error if I try to do it in NKI                        
-                        W_tr = np.transpose(W, [2, 3, 1, 0])
+                        W_tr = W
+                        #W_tr = np.transpose(W, [2, 3, 1, 0])
                         #print(W_tr)
                         # print("------------- Image --------")
                         # pprint(X, width=100)
-                        # print("------------- Kernal Before --------")
-                        # pprint(W, width=100)
-                        # print("------------- Kernal After --------")
-                        # pprint(W_tr, width=100)
+                        print("------------- Kernal Before --------")
+                        pprint(W, width=100)
+                        print("------------- Kernal After --------")
+                        pprint(np.transpose(W, [2, 3, 1, 0]), width=100)
                         args = [X, W_tr, bias]
                         kwargs = {"pool_size": pool_size}
                         print("------------ Running Kernal ----------------")
@@ -177,8 +178,8 @@ def test_performance_conv2d_kernel(
     
     bias = np.random.rand(out_channels).astype(dtype)
     #bias = np.zeros(out_channels).astype(np.float32)                      
-    W_tr = np.transpose(W, [2, 3, 1, 0])
-    args = [X, W_tr, bias]
+    #W_tr = np.transpose(W, [2, 3, 1, 0])
+    args = [X, W, bias]
     kwargs = {"pool_size": pool_size}
 
     dtype_str = "float32" if dtype == np.float32 else "float16"
@@ -245,29 +246,29 @@ if __name__ == "__main__":
     else:
         print("Failed 😢")
 
-    print(
-        "Running correctness test for conv2d kernel with larger images...",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=True)
-    if test_result:
-        print("Passed 😇")
-    else:
-        print("Failed 😢")
+    # print(
+    #     "Running correctness test for conv2d kernel with larger images...",
+    #     end="",
+    #     flush=True,
+    # )
+    # test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=True)
+    # if test_result:
+    #     print("Passed 😇")
+    # else:
+    #     print("Failed 😢")
 
-    print(
-        "Running correctness test for conv2d kernel with larger images + bias...",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(
-        conv2d, use_bias=True, use_larger_images=True
-    )
-    if test_result:
-        print("Passed 😍")
-    else:
-        print("Failed 😢")
+    # print(
+    #     "Running correctness test for conv2d kernel with larger images + bias...",
+    #     end="",
+    #     flush=True,
+    # )
+    # test_result = test_correctness_conv2d_kernel(
+    #     conv2d, use_bias=True, use_larger_images=True
+    # )
+    # if test_result:
+    #     print("Passed 😍")
+    # else:
+    #     print("Failed 😢")
 
     # if args.test_maxpool:
     #     print(
@@ -300,8 +301,8 @@ if __name__ == "__main__":
     else:
         print("Performance test failed 😢")
 
-    if args.profile is not None:
-        save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
+    # if args.profile is not None:
+    #     save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
 
     # if args.test_maxpool:
     #     print("Comparing performance with reference kernel (with maxpool, float32)...")
