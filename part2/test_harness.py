@@ -88,13 +88,13 @@ def test_correctness_conv2d_kernel(
     image_dims_list = [(32, 16)]
     pool_size = 2 if use_maxpool else 1
 
-    input_channels_list = [2]
-    output_channels_list = [2]
-    kernel_size_list = [2]
-    batch_size_list = [1]
-    image_dims_list = [(3, 3)]
-    pool_size = 1
-    use_bias = False
+    # input_channels_list = [2]
+    # output_channels_list = [2]
+    # kernel_size_list = [3]
+    # batch_size_list = [1]
+    # image_dims_list = [(4, 4)]
+    # pool_size = 1
+    # use_bias = False
 
     if use_larger_images:
         input_channels_list = [256]

@@ -100,11 +100,9 @@ def fused_conv2d_maxpool(X, W, bias, pool_size=1):
                             filter = nl.load(W[i,j,start_idx_inner:end_idx_inner,start_idx_out:end_idx_out])
                             im2col = nl.ndarray((c_in_pmax, free_dim_max_rows, out_width), dtype=X.dtype, buffer=nl.sbuf)
                             for y in nl.affine_range(free_dim_max_rows):
-                                for x in nl.affine_range(out_width):
-                                    in_y = y + row_start + i
-                                    in_x = x + j
-                                    input_pos = in_y * input_width + in_x 
-                                    im2col[:,y,x] = nl.load(X_re[batch,start_idx_inner:end_idx_inner,input_pos]) # loads to SBUF
+                                in_y = y + row_start + i
+                                input_pos = in_y * input_width + j 
+                                im2col[:,y,:] = nl.load(X_re[batch,start_idx_inner:end_idx_inner,input_pos:input_pos+out_width]) # loads to SBUF
                             output_3d += nl.matmul(filter, im2col, transpose_x = True) # accumulate to PSUM
 
                 # Need to copy from psum to sbuf before we can copy it to HBM
