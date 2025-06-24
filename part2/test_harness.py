@@ -8,6 +8,7 @@ from neuronxcc.nki import baremetal
 from neuronxcc.nki import benchmark
 
 from conv2d import fused_conv2d_maxpool as conv2d
+from conv2d import fused_conv2d_maxpool_with_max_pool as fused_conv2d_maxpool_with_max_pool
 
 from conv2d_numpy import conv2d_cpu_torch, conv_numpy
 import logging
@@ -138,8 +139,8 @@ def test_correctness_conv2d_kernel(
                         print("------------ End Kernal ----------------")
                         args = [X, W, bias]
                         out_ref = ref_impl(*args, **kwargs)
-                        # print(out)
-                        # print(out_ref)
+                        # # print(out)
+                        # # print(out_ref)
 
 
                         if not np.allclose(out, out_ref):
@@ -234,17 +235,18 @@ if __name__ == "__main__":
 
     if args.simulate:
         conv2d = simulate_kernel_wrapper(conv2d)
+
     # running correctness tests
-    print(
-        "Running correctness test for conv2d kernel with smaller images...\n",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=False)
-    if test_result:
-        print("Passed 😎")
-    else:
-        print("Failed 😢")
+    # print(
+    #     "Running correctness test for conv2d kernel with smaller images...\n",
+    #     end="",
+    #     flush=True,
+    # )
+    # test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=False)
+    # if test_result:
+    #     print("Passed 😎")
+    # else:
+    #     print("Failed 😢")
 
     # print(
     #     "Running correctness test for conv2d kernel with larger images...",
@@ -270,57 +272,57 @@ if __name__ == "__main__":
     # else:
     #     print("Failed 😢")
 
-    # if args.test_maxpool:
-    #     print(
-    #         "Running correctness test for conv2d kernel with larger images + bias + maxpool...",
-    #         end="",
-    #         flush=True,
-    #     )
-    #     test_result = test_correctness_conv2d_kernel(
-    #         conv2d, use_bias=True, use_maxpool=True, use_larger_images=True
-    #     )
-    #     if test_result:
-    #         print("Passed 😍")
-    #     else:
-    #         print("Failed 😢")
+    if args.test_maxpool:
+        print(
+            "Running correctness test for conv2d kernel with larger images + bias + maxpool...",
+            end="",
+            flush=True,
+        )
+        test_result = test_correctness_conv2d_kernel(
+            fused_conv2d_maxpool_with_max_pool, use_bias=True, use_maxpool=True, use_larger_images=True
+        )
+        if test_result:
+            print("Passed 😍")
+        else:
+            print("Failed 😢")
 
-    print("Comparing performance with reference kernel (no maxpool, float32)...")
-    test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float32)
-    if test_result:
-        print("Performance test passed 😍")
-    else:
-        print("Performance test failed 😢")
+    # print("Comparing performance with reference kernel (no maxpool, float32)...")
+    # test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float32)
+    # if test_result:
+    #     print("Performance test passed 😍")
+    # else:
+    #     print("Performance test failed 😢")
 
-    if args.profile is not None:
-        save_trace(args.profile + "_float32", "file_pool_1_float32.neff")
+    # if args.profile is not None:
+    #     save_trace(args.profile + "_float32", "file_pool_1_float32.neff")
     
-    print("Comparing performance with reference kernel (no maxpool, float16)...")
-    test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float16)
-    if test_result:
-        print("Performance test passed 😍")
-    else:
-        print("Performance test failed 😢")
+    # print("Comparing performance with reference kernel (no maxpool, float16)...")
+    # test_result = test_performance_conv2d_kernel(conv2d, pool_size=1, dtype = np.float16)
+    # if test_result:
+    #     print("Performance test passed 😍")
+    # else:
+    #     print("Performance test failed 😢")
 
     # if args.profile is not None:
     #     save_trace(args.profile + "_float16", "file_pool_1_float16.neff")
 
-    # if args.test_maxpool:
-    #     print("Comparing performance with reference kernel (with maxpool, float32)...")
-    #     test_result = test_performance_conv2d_kernel(conv2d, pool_size=2, dtype = np.float32)
-    #     if test_result:
-    #         print("Performance test passed 😍")
-    #     else:
-    #         print("Performance test failed 😢")
+    if args.test_maxpool:
+        print("Comparing performance with reference kernel (with maxpool, float32)...")
+        test_result = test_performance_conv2d_kernel(fused_conv2d_maxpool_with_max_pool, pool_size=2, dtype = np.float32)
+        if test_result:
+            print("Performance test passed 😍")
+        else:
+            print("Performance test failed 😢")
 
-    #     if args.profile is not None:
-    #         save_trace(args.profile + "_pool_float32", "file_pool_2_float32.neff")
+        if args.profile is not None:
+            save_trace(args.profile + "_pool_float32", "file_pool_2_float32.neff")
 
-    #     print("Comparing performance with reference kernel (with maxpool, float16)...")
-    #     test_result = test_performance_conv2d_kernel(conv2d, pool_size=2, dtype = np.float16)
-    #     if test_result:
-    #         print("Performance test passed 😍")
-    #     else:
-    #         print("Performance test failed 😢")
+        print("Comparing performance with reference kernel (with maxpool, float16)...")
+        test_result = test_performance_conv2d_kernel(fused_conv2d_maxpool_with_max_pool, pool_size=2, dtype = np.float16)
+        if test_result:
+            print("Performance test passed 😍")
+        else:
+            print("Performance test failed 😢")
 
-    #     if args.profile is not None:
-    #         save_trace(args.profile + "_pool_float16", "file_pool_2_float16.neff")
+        if args.profile is not None:
+            save_trace(args.profile + "_pool_float16", "file_pool_2_float16.neff")
